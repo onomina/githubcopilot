@@ -26,9 +26,15 @@
   ringProgress.style.strokeDashoffset = 0;
 
   // ---- Timer インスタンスを生成 ----
+  // 入力値を安全にパースするヘルパー（NaN・0以下の場合はデフォルト値を使用）
+  const parseTimeInput = (input, defaultVal) => {
+    const v = parseInt(input.value, 10);
+    return Number.isNaN(v) || v <= 0 ? defaultVal : v;
+  };
+
   const timer = new Timer({
-    workSeconds: parseInt(workSecondsInput.value, 10) || DEFAULT_WORK_SECONDS,
-    breakSeconds: parseInt(breakSecondsInput.value, 10) || DEFAULT_BREAK_SECONDS,
+    workSeconds: parseTimeInput(workSecondsInput, DEFAULT_WORK_SECONDS),
+    breakSeconds: parseTimeInput(breakSecondsInput, DEFAULT_BREAK_SECONDS),
     onTick: updateUI,                         // 毎秒 UI を更新
     onComplete: handleComplete,               // 1 モード完了時に呼ばれる（次モード情報は timer から読む）
     onAllSetsComplete: (msg) => {             // 全 4 セット完了時のアラート
@@ -42,10 +48,10 @@
    */
   function applyInputValues() {
     if (timer.currentState !== STATE.IDLE) return; // 動作中は変更しない
-    const newWork = parseInt(workSecondsInput.value, 10);
-    const newBreak = parseInt(breakSecondsInput.value, 10);
-    if (newWork > 0) timer.workSeconds = newWork;
-    if (newBreak > 0) timer.breakSeconds = newBreak;
+    const newWork = parseTimeInput(workSecondsInput, timer.workSeconds);
+    const newBreak = parseTimeInput(breakSecondsInput, timer.breakSeconds);
+    timer.workSeconds = newWork;
+    timer.breakSeconds = newBreak;
     // 残り時間を新しい作業時間に更新して表示に反映
     timer.remaining = timer.workSeconds;
     displayEl.textContent = timer.getTimeString();
