@@ -6,6 +6,7 @@ const {
   STATE,
   DEFAULT_WORK_SECONDS,
   DEFAULT_BREAK_SECONDS,
+  TOTAL_SETS,
 } = require("./timer");
 
 /**
@@ -46,6 +47,10 @@ describe("定数", () => {
   test("デフォルト休憩時間は 20 秒", () => {
     expect(DEFAULT_BREAK_SECONDS).toBe(20);
   });
+
+  test("デフォルト全セット数は 4", () => {
+    expect(TOTAL_SETS).toBe(4);
+  });
 });
 
 // ------------------------------------------------------------------ 初期状態
@@ -56,6 +61,7 @@ describe("初期状態", () => {
     expect(timer.remainingSeconds).toBe(DEFAULT_WORK_SECONDS);
     expect(timer.currentMode).toBe(MODE.WORK);
     expect(timer.currentState).toBe(STATE.IDLE);
+    expect(timer.completedSets).toBe(0);
   });
 
   test("カスタム作業・休憩時間で生成できる", () => {
@@ -104,6 +110,16 @@ describe("start()", () => {
     expect(ticks).toHaveLength(3);
     expect(ticks[0]).toEqual({ remaining: DEFAULT_WORK_SECONDS - 1, mode: MODE.WORK });
     expect(ticks[2]).toEqual({ remaining: DEFAULT_WORK_SECONDS - 3, mode: MODE.WORK });
+  });
+
+  test("PAUSED 状態で start() しても何も変わらない", () => {
+    const clock = createFakeClock();
+    const timer = new Timer({ _clock: clock });
+    timer.start();
+    clock.tick(5);
+    timer.pause();
+    timer.start(); // PAUSED 中は無視される
+    expect(timer.currentState).toBe(STATE.PAUSED);
   });
 });
 
@@ -171,6 +187,23 @@ describe("reset()", () => {
     timer.reset();
     clock.tick(5);
     expect(timer.remainingSeconds).toBe(DEFAULT_WORK_SECONDS);
+  });
+
+  test("リセットで completedSets も 0 に戻る", () => {
+    const clock = createFakeClock();
+    const timer = new Timer({
+      workSeconds: 1,
+      breakSeconds: 1,
+      totalSets: 10,
+      _clock: clock,
+      onNotify: () => {},
+    });
+    // 1 セット完了（作業→休憩→完了）
+    timer.start(); clock.tick(1); // 作業完了
+    timer.start(); clock.tick(1); // 休憩完了 → completedSets = 1
+    expect(timer.completedSets).toBe(1);
+    timer.reset();
+    expect(timer.completedSets).toBe(0);
   });
 });
 
@@ -240,7 +273,7 @@ describe("タイマー終了", () => {
     expect(messages[0]).toContain("作業時間が終了");
   });
 
-  test("FINISHED 状態から start() するとリセットして再開する", () => {
+  test("タイマー完了後は次のモードの IDLE に遷移して再 start() できる", () => {
     const clock = createFakeClock();
     const timer = new Timer({
       workSeconds: 1,
@@ -249,9 +282,10 @@ describe("タイマー終了", () => {
     });
     timer.start();
     clock.tick(1);
-    // 終了後は IDLE（自動切替済み）
+    // 作業終了後は休憩モードの IDLE
     expect(timer.currentState).toBe(STATE.IDLE);
-    // 再 start
+    expect(timer.currentMode).toBe(MODE.BREAK);
+    // 休憩モードから start() できる
     timer.start();
     expect(timer.currentState).toBe(STATE.RUNNING);
   });
@@ -261,12 +295,6 @@ describe("タイマー終了", () => {
 
 describe("getTimeString() エッジケース", () => {
   test("00:00 を返す（0秒）", () => {
-    const clock = createFakeClock();
-    const timer = new Timer({ workSeconds: 1, _clock: clock, onNotify: () => {} });
-    timer.start();
-    clock.tick(1);
-    // 終了後は break 残り時間へ切替済み
-    // 0秒タイマーで確認
     const zeroTimer = new Timer({ workSeconds: 0 });
     expect(zeroTimer.getTimeString()).toBe("00:00");
   });
@@ -274,5 +302,101 @@ describe("getTimeString() エッジケース", () => {
   test("60秒 → 01:00", () => {
     const timer = new Timer({ workSeconds: 60 });
     expect(timer.getTimeString()).toBe("01:00");
+  });
+});
+
+// ------------------------------------------------------------------ 4 セット完了
+
+describe("4 セット完了", () => {
+  /** 1 セット（作業→休憩）を完了するヘルパー */
+  function completeOneSet(timer, clock) {
+    timer.start();
+    clock.tick(timer.workSeconds);
+    timer.start();
+    clock.tick(timer.breakSeconds);
+  }
+
+  test("休憩が終わるたびに completedSets が増える", () => {
+    const clock = createFakeClock();
+    const timer = new Timer({
+      workSeconds: 1,
+      breakSeconds: 1,
+      totalSets: 4,
+      _clock: clock,
+      onNotify: () => {},
+    });
+    completeOneSet(timer, clock);
+    expect(timer.completedSets).toBe(1);
+    completeOneSet(timer, clock);
+    expect(timer.completedSets).toBe(2);
+  });
+
+  test("4 セット完了後に onAllSetsComplete が呼ばれる", () => {
+    const clock = createFakeClock();
+    const allDoneMessages = [];
+    const timer = new Timer({
+      workSeconds: 1,
+      breakSeconds: 1,
+      totalSets: 4,
+      _clock: clock,
+      onNotify: () => {},
+      onAllSetsComplete: (msg) => allDoneMessages.push(msg),
+    });
+    for (let i = 0; i < 4; i++) {
+      completeOneSet(timer, clock);
+    }
+    expect(allDoneMessages).toHaveLength(1);
+    expect(allDoneMessages[0]).toContain("4セット完了");
+  });
+
+  test("4 セット完了後 completedSets は 0 にリセットされる", () => {
+    const clock = createFakeClock();
+    const timer = new Timer({
+      workSeconds: 1,
+      breakSeconds: 1,
+      totalSets: 4,
+      _clock: clock,
+      onNotify: () => {},
+      onAllSetsComplete: () => {},
+    });
+    for (let i = 0; i < 4; i++) {
+      completeOneSet(timer, clock);
+    }
+    // 4 セット後は 0 にリセットされ、次のサイクルが始まれる
+    expect(timer.completedSets).toBe(0);
+  });
+
+  test("totalSets を変更できる（2 セットで完了）", () => {
+    const clock = createFakeClock();
+    const allDoneCalls = [];
+    const timer = new Timer({
+      workSeconds: 1,
+      breakSeconds: 1,
+      totalSets: 2,
+      _clock: clock,
+      onNotify: () => {},
+      onAllSetsComplete: () => allDoneCalls.push(true),
+    });
+    completeOneSet(timer, clock);
+    expect(allDoneCalls).toHaveLength(0); // まだ 1 セット
+    completeOneSet(timer, clock);
+    expect(allDoneCalls).toHaveLength(1); // 2 セット完了
+  });
+
+  test("作業のみ完了しても onAllSetsComplete は呼ばれない", () => {
+    const clock = createFakeClock();
+    const allDoneCalls = [];
+    const timer = new Timer({
+      workSeconds: 1,
+      breakSeconds: 10,
+      totalSets: 1,
+      _clock: clock,
+      onNotify: () => {},
+      onAllSetsComplete: () => allDoneCalls.push(true),
+    });
+    // 作業のみ完了
+    timer.start();
+    clock.tick(1);
+    expect(allDoneCalls).toHaveLength(0);
   });
 });

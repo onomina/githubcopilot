@@ -28,8 +28,8 @@
           <svg viewBox="0 0 200 200" width="200" height="200">
             <!-- Background ring -->
             <circle class="ring-bg" cx="100" cy="100" r="80" />
-            <!-- Progress ring -->
-            <circle id="ring-progress" class="ring-progress" cx="100" cy="100" r="80" />
+            <!-- Progress ring (時計回りに減るアニメーション: rotate(-90) で 12 時スタート) -->
+            <circle id="ring-progress" class="ring-progress" cx="100" cy="100" r="80" transform="rotate(-90 100 100)" />
           </svg>
           <span id="timer-display" class="timer-display">01:00</span>
         </div>
