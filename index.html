@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>タイマー</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="card">
+    <h1>⏱ タイマー</h1>
+
+    <div id="time-display" class="timer-display">25:00</div>
+    <span id="status" class="status status--stopped">停止中</span>
+
+    <div class="settings">
+      <label for="minutes-input">分数:</label>
+      <input
+        id="minutes-input"
+        type="number"
+        min="1"
+        max="999"
+        value="25"
+        title="タイマーの分数を設定"
+      />
+    </div>
+
+    <div class="controls">
+      <button id="btn-start-pause" class="btn btn--primary">スタート</button>
+      <button id="btn-reset" class="btn btn--secondary" disabled>リセット</button>
+    </div>
+
+    <div id="notification" class="notification notification--hidden" role="alert" aria-live="polite">
+      <span id="notification-message"></span>
+      <button id="notification-close" class="notification__close" aria-label="閉じる">✕</button>
+    </div>
+  </div>
+
+  <script src="timer.js"></script>
+</body>
+</html>
