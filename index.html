@@ -21,7 +21,7 @@
       <!-- Main content -->
       <div class="content">
         <!-- Status -->
-        <p class="status-label">作業中</p>
+        <p id="status-label" class="status-label">作業中</p>
 
         <!-- Circular timer -->
         <div class="timer-ring-container">
@@ -29,15 +29,15 @@
             <!-- Background ring -->
             <circle class="ring-bg" cx="100" cy="100" r="80" />
             <!-- Progress ring -->
-            <circle class="ring-progress" cx="100" cy="100" r="80" />
+            <circle id="ring-progress" class="ring-progress" cx="100" cy="100" r="80" />
           </svg>
-          <span class="timer-display">25:00</span>
+          <span id="timer-display" class="timer-display">01:00</span>
         </div>
 
         <!-- Buttons -->
         <div class="buttons">
-          <button class="btn btn-start">開始</button>
-          <button class="btn btn-reset">リセット</button>
+          <button id="btn-start" class="btn btn-start">開始</button>
+          <button id="btn-reset" class="btn btn-reset">リセット</button>
         </div>
 
         <!-- Today's progress -->
@@ -56,5 +56,7 @@
         </div>
       </div>
     </div>
+    <script src="timer.js"></script>
+    <script src="app.js"></script>
   </body>
 </html>
