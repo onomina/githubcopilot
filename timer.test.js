@@ -202,8 +202,8 @@ describe("reset()", () => {
     });
     // 1 セット完了（作業→自動で休憩→完了 → completedSets = 1）
     timer.start();
-    clock.tick(1); // 作業完了 → 自動で休憩開始
-    clock.tick(1); // 休憩完了 → completedSets = 1, 自動で作業開始
+    clock.tick(2); // 作業完了（0秒表示後）→ 自動で休憩開始
+    clock.tick(2); // 休憩完了（0秒表示後）→ completedSets = 1, 自動で作業開始
     expect(timer.completedSets).toBe(1);
     timer.reset();
     expect(timer.completedSets).toBe(0);
@@ -222,7 +222,7 @@ describe("タイマー終了", () => {
       onComplete: (mode) => completedModes.push(mode),
     });
     timer.start();
-    clock.tick(3);
+    clock.tick(4); // 3秒カウント + 0秒を1ティック表示してから完了
     expect(completedModes).toEqual([MODE.WORK]);
   });
 
@@ -234,7 +234,7 @@ describe("タイマー終了", () => {
       _clock: clock,
     });
     timer.start();
-    clock.tick(2);
+    clock.tick(3); // 2秒カウント + 0秒を1ティック表示してから完了
     expect(timer.currentMode).toBe(MODE.BREAK);
     expect(timer.currentState).toBe(STATE.RUNNING); // 自動スタート
     expect(timer.remainingSeconds).toBe(5);
@@ -250,12 +250,12 @@ describe("タイマー終了", () => {
     });
     // 作業終了 → 自動で休憩スタート
     timer.start();
-    clock.tick(1);
+    clock.tick(2); // 1秒カウント + 0秒を1ティック表示してから完了
     expect(timer.currentMode).toBe(MODE.BREAK);
     expect(timer.currentState).toBe(STATE.RUNNING);
 
     // 休憩終了 → 自動で作業スタート
-    clock.tick(1);
+    clock.tick(2); // 1秒カウント + 0秒を1ティック表示してから完了
     expect(timer.currentMode).toBe(MODE.WORK);
     expect(timer.currentState).toBe(STATE.RUNNING);
   });
@@ -271,8 +271,8 @@ describe("タイマー終了", () => {
       onNotify: (msg) => messages.push(msg),
     });
     timer.start();
-    clock.tick(1); // 作業終了 → 自動で休憩（アラートなし）
-    clock.tick(1); // 休憩終了 → 自動で作業（アラートなし）
+    clock.tick(2); // 作業終了 → 自動で休憩（アラートなし）
+    clock.tick(2); // 休憩終了 → 自動で作業（アラートなし）
     expect(messages).toHaveLength(0);
   });
 
@@ -288,8 +288,8 @@ describe("タイマー終了", () => {
       // onAllSetsComplete 未設定 → _notify にフォールバック
     });
     timer.start();
-    clock.tick(1); // 作業終了 → 自動で休憩
-    clock.tick(1); // 休憩終了 → 1 セット完了 → onNotify 呼ばれる
+    clock.tick(2); // 作業終了 → 自動で休憩
+    clock.tick(2); // 休憩終了 → 1 セット完了 → onNotify 呼ばれる
     expect(messages).toHaveLength(1);
     expect(messages[0]).toContain("セット完了");
   });
@@ -302,7 +302,7 @@ describe("タイマー終了", () => {
       _clock: clock,
     });
     timer.start();
-    clock.tick(1);
+    clock.tick(2); // 1秒カウント + 0秒を1ティック表示してから完了
     // 作業終了後は自動で休憩が RUNNING
     expect(timer.currentState).toBe(STATE.RUNNING);
     expect(timer.currentMode).toBe(MODE.BREAK);
@@ -334,8 +334,8 @@ describe("4 セット完了", () => {
    * 1 セット = 作業 tick + 休憩 tick（自動スタートするので timer.start() 不要）
    */
   function completeOneSet(timer, clock) {
-    clock.tick(timer.workSeconds);   // 作業終了 → 自動で休憩開始
-    clock.tick(timer.breakSeconds);  // 休憩終了 → 自動で次の作業開始（または全完了）
+    clock.tick(timer.workSeconds + 1);   // 0秒を1ティック表示してから作業完了
+    clock.tick(timer.breakSeconds + 1);  // 0秒を1ティック表示してから休憩完了
   }
 
   test("休憩が終わるたびに completedSets が増える", () => {
@@ -417,7 +417,7 @@ describe("4 セット完了", () => {
     });
     // 作業のみ完了 → 自動で休憩開始（まだ完了アラートなし）
     timer.start();
-    clock.tick(1);
+    clock.tick(2); // 作業完了（0秒表示後）→ 自動で休憩開始
     expect(allDoneCalls).toHaveLength(0);
   });
 
