@@ -105,6 +105,45 @@ body {
   letter-spacing: 1px;
 }
 
+/* Settings card */
+.settings-card {
+  display: flex;
+  gap: 16px;
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.setting-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.setting-item label {
+  font-size: 12px;
+  color: #888;
+  font-weight: 500;
+}
+
+.time-input {
+  border: 1.5px solid #c5c5d8;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #2d2d2d;
+  background: #f8f8fc;
+  outline: none;
+  width: 100%;
+  text-align: center;
+}
+
+.time-input:focus {
+  border-color: #6c63c4;
+  background: #fff;
+}
+
 /* Buttons */
 .buttons {
   display: flex;

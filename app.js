@@ -16,6 +16,8 @@
   const startBtn = document.getElementById("btn-start");      // 開始 / 一時停止 / 再開ボタン
   const resetBtn = document.getElementById("btn-reset");      // リセットボタン
   const ringProgress = document.getElementById("ring-progress"); // SVG 進捗リング
+  const workSecondsInput = document.getElementById("work-seconds");   // 作業時間（秒）入力
+  const breakSecondsInput = document.getElementById("break-seconds"); // 休憩時間（秒）入力
 
   // ---- リングの初期設定 ----
   // stroke-dasharray を円周の長さに設定して「1本の線でリング全体」を表現する
@@ -25,12 +27,32 @@
 
   // ---- Timer インスタンスを生成 ----
   const timer = new Timer({
+    workSeconds: parseInt(workSecondsInput.value, 10) || DEFAULT_WORK_SECONDS,
+    breakSeconds: parseInt(breakSecondsInput.value, 10) || DEFAULT_BREAK_SECONDS,
     onTick: updateUI,                         // 毎秒 UI を更新
     onComplete: handleComplete,               // 1 モード完了時に呼ばれる（次モード情報は timer から読む）
     onAllSetsComplete: (msg) => {             // 全 4 セット完了時のアラート
       alert(msg);
     },
   });
+
+  /**
+   * 入力フィールドの値が変更されたとき、タイマーが停止中であれば
+   * timer の設定値と表示を即時反映する。
+   */
+  function applyInputValues() {
+    if (timer.currentState !== STATE.IDLE) return; // 動作中は変更しない
+    const newWork = parseInt(workSecondsInput.value, 10);
+    const newBreak = parseInt(breakSecondsInput.value, 10);
+    if (newWork > 0) timer.workSeconds = newWork;
+    if (newBreak > 0) timer.breakSeconds = newBreak;
+    // 残り時間を新しい作業時間に更新して表示に反映
+    timer.remaining = timer.workSeconds;
+    displayEl.textContent = timer.getTimeString();
+  }
+
+  workSecondsInput.addEventListener("change", applyInputValues);
+  breakSecondsInput.addEventListener("change", applyInputValues);
 
   /**
    * 毎秒呼ばれる UI 更新関数。
@@ -91,7 +113,8 @@
       timer.resume();
       startBtn.textContent = "一時停止";
     } else {
-      // 停止中 → 開始
+      // 停止中 → 入力値を反映してから開始
+      applyInputValues();
       timer.start();
       startBtn.textContent = "一時停止";
       // 現在のモードをステータスラベルに反映
@@ -103,6 +126,8 @@
   resetBtn.addEventListener("click", () => {
     // タイマーを作業モード・初期秒数に戻す
     timer.reset();
+    // 入力値をタイマーに反映（リセット後に設定値が変わっていれば更新）
+    applyInputValues();
     // UI を初期状態に戻す
     startBtn.textContent = "開始";
     statusEl.textContent = "作業中";

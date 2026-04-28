@@ -28,10 +28,22 @@
           <svg viewBox="0 0 200 200" width="200" height="200">
             <!-- Background ring -->
             <circle class="ring-bg" cx="100" cy="100" r="80" />
-            <!-- Progress ring (時計回りに減るアニメーション: rotate(-90) で 12 時スタート) -->
-            <circle id="ring-progress" class="ring-progress" cx="100" cy="100" r="80" transform="rotate(-90 100 100)" />
+            <!-- Progress ring (CSS の rotate(-90deg) で SVG 全体が -90° 回転済みのため 12 時スタート) -->
+            <circle id="ring-progress" class="ring-progress" cx="100" cy="100" r="80" />
           </svg>
           <span id="timer-display" class="timer-display">01:00</span>
+        </div>
+
+        <!-- Time settings -->
+        <div class="settings-card">
+          <div class="setting-item">
+            <label for="work-seconds">作業時間（秒）</label>
+            <input type="number" id="work-seconds" class="time-input" min="1" max="3600" value="60" />
+          </div>
+          <div class="setting-item">
+            <label for="break-seconds">休憩時間（秒）</label>
+            <input type="number" id="break-seconds" class="time-input" min="1" max="3600" value="20" />
+          </div>
         </div>
 
         <!-- Buttons -->
