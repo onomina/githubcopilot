@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ポモドーロタイマー</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="window">
+      <!-- Title bar -->
+      <div class="title-bar">
+        <h1>ポモドーロタイマー</h1>
+        <div class="window-controls">
+          <span>&#8722;</span>
+          <span>&#9633;</span>
+          <span>&#x2715;</span>
+        </div>
+      </div>
+
+      <!-- Main content -->
+      <div class="content">
+        <!-- Status -->
+        <p class="status-label">作業中</p>
+
+        <!-- Circular timer -->
+        <div class="timer-ring-container">
+          <svg viewBox="0 0 200 200" width="200" height="200">
+            <!-- Background ring -->
+            <circle class="ring-bg" cx="100" cy="100" r="80" />
+            <!-- Progress ring -->
+            <circle class="ring-progress" cx="100" cy="100" r="80" />
+          </svg>
+          <span class="timer-display">25:00</span>
+        </div>
+
+        <!-- Buttons -->
+        <div class="buttons">
+          <button class="btn btn-start">開始</button>
+          <button class="btn btn-reset">リセット</button>
+        </div>
+
+        <!-- Today's progress -->
+        <div class="progress-card">
+          <h2>今日の進捗</h2>
+          <div class="progress-stats">
+            <div class="stat-item">
+              <span class="stat-value">4</span>
+              <span class="stat-label">完了</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value highlight">1時間40分</span>
+              <span class="stat-label">集中時間</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
