@@ -171,17 +171,19 @@ class Timer {
   /** 1 秒ごとのカウントダウン処理を setInterval で登録する */
   _startInterval() {
     this._intervalId = this._clock.setInterval(() => {
+      // 残り 0 秒以下の場合は、前のティックで "00:00" を 1 秒間表示済みのため終了処理へ
+      if (this.remaining <= 0) {
+        this._handleComplete();
+        return;
+      }
+
       // 1 秒減らす
       this.remaining -= 1;
 
       // UI 更新用コールバックを呼ぶ
+      // remaining が 0 になったとき "00:00" が 1 秒間表示される
       if (this.onTick) {
         this.onTick(this.remaining, this.mode);
-      }
-
-      // 残り 0 秒以下になったらタイマー終了処理へ
-      if (this.remaining <= 0) {
-        this._handleComplete();
       }
     }, 1000);
   }
