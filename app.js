@@ -44,7 +44,7 @@
     if (hours > 0) {
       focusTimeEl.textContent = `${hours}時間${minutes}分`;
     } else if (minutes > 0) {
-      focusTimeEl.textContent = `${minutes}分${seconds > 0 ? seconds + "秒" : ""}`;
+      focusTimeEl.textContent = `${minutes}分`;
     } else {
       focusTimeEl.textContent = `${seconds}秒`;
     }
