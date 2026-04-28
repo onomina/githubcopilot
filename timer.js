@@ -29,7 +29,6 @@ const STATE = {
   IDLE: "idle",       // 停止中（開始前またはリセット後）
   RUNNING: "running", // カウントダウン中
   PAUSED: "paused",   // 一時停止中
-  FINISHED: "finished", // タイマー終了直後（内部遷移用）
 };
 
 class Timer {
@@ -84,7 +83,7 @@ class Timer {
     return this.mode;
   }
 
-  /** 現在の状態 ("idle" | "running" | "paused" | "finished") を返す */
+  /** 現在の状態 ("idle" | "running" | "paused") を返す */
   get currentState() {
     return this.state;
   }
