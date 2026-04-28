@@ -26,9 +26,10 @@
   // ---- Timer インスタンスを生成 ----
   const timer = new Timer({
     onTick: updateUI,                         // 毎秒 UI を更新
-    onComplete: handleComplete,               // 1 モード完了時に呼ばれる
-    onNotify: (msg) => alert(msg),            // 通知はブラウザのアラートで表示
-    onAllSetsComplete: (msg) => alert(msg),   // 全 4 セット完了時のアラート
+    onComplete: handleComplete,               // 1 モード完了時に呼ばれる（次モード情報は timer から読む）
+    onAllSetsComplete: (msg) => {             // 全 4 セット完了時のアラート
+      alert(msg);
+    },
   });
 
   /**
@@ -61,15 +62,18 @@
 
   /**
    * 1 モード（作業 or 休憩）が終了したときに呼ばれる関数。
-   * ボタンを「開始」に戻し、リングをフルに、表示を次のモードの時間にリセットする。
+   * timer.js が次のモードへ切り替え済みなので、timer の現在値を読んで UI を更新する。
+   * 次のモードは自動スタートされるため、ボタンは「一時停止」に変わる。
+   * 全セット完了時は timer が IDLE に戻るため、ボタンは「開始」になる。
    *
    * @param {string} mode - 終了したモード ("work" | "break")
    */
   function handleComplete(mode) {
-    // 次のモードのステータスラベルを表示
-    statusEl.textContent = mode === MODE.WORK ? "休憩中" : "作業中";
-    // ボタンを「開始」に戻す
-    startBtn.textContent = "開始";
+    // timer はすでに次のモードに切り替わっているので currentMode を参照
+    statusEl.textContent = timer.currentMode === MODE.WORK ? "作業中" : "休憩中";
+    // タイマーが自動スタートしていれば「一時停止」、停止（全完了）なら「開始」
+    startBtn.textContent =
+      timer.currentState === STATE.RUNNING ? "一時停止" : "開始";
     // リングをフル（offset=0）に戻す
     ringProgress.style.strokeDashoffset = 0;
     // 次のモードの初期時間を表示

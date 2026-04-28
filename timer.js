@@ -197,52 +197,62 @@ class Timer {
 
   /**
    * タイマー終了時の処理。
-   * 1. インターバルを停止
-   * 2. 通知メッセージを発行
-   * 3. onComplete コールバックを呼ぶ
-   * 4. 次のモード（作業 ↔ 休憩）に切り替え
-   * 5. 休憩終了 = 1 セット完了 → セット数を加算し、全完了ならアラート
+   *
+   * 作業と休憩の間はアラートなしで自動的に次のモードへ切り替わる。
+   * 作業＋休憩 = 1 セットとし、全セット（デフォルト 4）完了時のみ
+   * onAllSetsComplete を呼び出してタイマーを停止する。
+   *
+   * フロー:
+   *   1. インターバルを停止
+   *   2. 次のモード（作業 ↔ 休憩）と残り秒数を設定
+   *   3. 休憩終了なら completedSets を加算
+   *   4. 全セット完了かどうかに応じて IDLE / RUNNING に遷移
+   *   5. onComplete で UI を更新
+   *   6a. 全セット完了 → onAllSetsComplete を呼ぶ（タイマー停止）
+   *   6b. 継続中    → _startInterval() で次のモードを自動スタート
    */
   _handleComplete() {
     this._clearInterval();
-    this.state = STATE.FINISHED;
 
     // 終了したモードを記録（この後 this.mode が変わるため）
     const finishedMode = this.mode;
-
-    // モードに応じた通知メッセージを生成して発行
-    const message =
-      finishedMode === MODE.WORK
-        ? "作業時間が終了しました！休憩しましょう。"
-        : "休憩時間が終了しました！作業を再開しましょう。";
-    this._notify(message);
-
-    // 外部コールバックに終了モードを伝える
-    if (this.onComplete) {
-      this.onComplete(finishedMode);
-    }
 
     // 次のモードへ切り替え（作業→休憩、休憩→作業）
     this.mode = finishedMode === MODE.WORK ? MODE.BREAK : MODE.WORK;
     this.remaining =
       this.mode === MODE.WORK ? this.workSeconds : this.breakSeconds;
-    this.state = STATE.IDLE; // 次のモードは手動 start() まで待機
 
-    // 休憩が終わったら 1 セット完了
+    // 休憩が終わったら 1 セット完了としてカウント
     if (finishedMode === MODE.BREAK) {
       this.completedSets += 1;
+    }
 
-      // 全セット完了チェック
-      if (this.completedSets >= this.totalSets) {
-        const allDoneMessage = `お疲れ様でした！${this.totalSets}セット完了しました。しっかり休んでください。`;
-        if (this.onAllSetsComplete) {
-          this.onAllSetsComplete(allDoneMessage);
-        } else {
-          this._notify(allDoneMessage);
-        }
-        // 次のサイクルのためにセット数をリセット
-        this.completedSets = 0;
+    // 全セット完了チェック
+    const allSetsCompleted =
+      finishedMode === MODE.BREAK && this.completedSets >= this.totalSets;
+
+    // 完了状態に応じて次の状態を決定（onComplete 呼び出し前に確定させる）
+    if (allSetsCompleted) {
+      this.state = STATE.IDLE;    // 全完了: 停止して待機
+      this.completedSets = 0;     // 次サイクルのためにカウントリセット
+    } else {
+      this.state = STATE.RUNNING; // 継続: 次のモードを自動スタート
+    }
+
+    // UI 更新コールバックを呼ぶ（この時点で mode/state/remaining は次の値に確定済み）
+    if (this.onComplete) this.onComplete(finishedMode);
+
+    if (allSetsCompleted) {
+      // 全セット完了: アラートを表示して停止
+      const allDoneMessage = `お疲れ様でした！${this.totalSets}セット完了しました。しっかり休んでください。`;
+      if (this.onAllSetsComplete) {
+        this.onAllSetsComplete(allDoneMessage);
+      } else {
+        this._notify(allDoneMessage);
       }
+    } else {
+      // 次のモードを自動スタート（ユーザー操作不要）
+      this._startInterval();
     }
   }
 

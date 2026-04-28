@@ -26,10 +26,13 @@ function createFakeClock() {
     clearInterval(tickId) {
       callbacks.delete(tickId);
     },
-    /** n 回ティックを進める */
+    /** n 回ティックを進める（各ステップ開始時点のコールバックをスナップショットして実行） */
     tick(n = 1) {
       for (let i = 0; i < n; i++) {
-        for (const fn of callbacks.values()) {
+        // スナップショットを取ることで、1 ティック中に登録された新しいコールバックを
+        // 同じティックで呼ばないようにする（タイマー切り替え時の二重カウントを防ぐ））
+        const current = [...callbacks.values()];
+        for (const fn of current) {
           fn();
         }
       }
@@ -196,11 +199,11 @@ describe("reset()", () => {
       breakSeconds: 1,
       totalSets: 10,
       _clock: clock,
-      onNotify: () => {},
     });
-    // 1 セット完了（作業→休憩→完了）
-    timer.start(); clock.tick(1); // 作業完了
-    timer.start(); clock.tick(1); // 休憩完了 → completedSets = 1
+    // 1 セット完了（作業→自動で休憩→完了 → completedSets = 1）
+    timer.start();
+    clock.tick(1); // 作業完了 → 自動で休憩開始
+    clock.tick(1); // 休憩完了 → completedSets = 1, 自動で作業開始
     expect(timer.completedSets).toBe(1);
     timer.reset();
     expect(timer.completedSets).toBe(0);
@@ -217,77 +220,95 @@ describe("タイマー終了", () => {
       workSeconds: 3,
       _clock: clock,
       onComplete: (mode) => completedModes.push(mode),
-      onNotify: () => {},
     });
     timer.start();
     clock.tick(3);
     expect(completedModes).toEqual([MODE.WORK]);
   });
 
-  test("作業終了後は休憩モードの IDLE に遷移する", () => {
+  test("作業終了後は自動で休憩モードの RUNNING に遷移する", () => {
     const clock = createFakeClock();
     const timer = new Timer({
       workSeconds: 2,
       breakSeconds: 5,
       _clock: clock,
-      onNotify: () => {},
     });
     timer.start();
     clock.tick(2);
     expect(timer.currentMode).toBe(MODE.BREAK);
-    expect(timer.currentState).toBe(STATE.IDLE);
+    expect(timer.currentState).toBe(STATE.RUNNING); // 自動スタート
     expect(timer.remainingSeconds).toBe(5);
   });
 
-  test("休憩終了後は作業モードの IDLE に遷移する", () => {
+  test("休憩終了後は自動で作業モードの RUNNING に遷移する", () => {
     const clock = createFakeClock();
     const timer = new Timer({
       workSeconds: 1,
       breakSeconds: 1,
+      totalSets: 10, // 4 セット完了アラートが出ないよう大きめに設定
       _clock: clock,
-      onNotify: () => {},
     });
-    // 作業終了
+    // 作業終了 → 自動で休憩スタート
     timer.start();
     clock.tick(1);
     expect(timer.currentMode).toBe(MODE.BREAK);
+    expect(timer.currentState).toBe(STATE.RUNNING);
 
-    // 休憩終了
-    timer.start();
+    // 休憩終了 → 自動で作業スタート
     clock.tick(1);
     expect(timer.currentMode).toBe(MODE.WORK);
-    expect(timer.currentState).toBe(STATE.IDLE);
+    expect(timer.currentState).toBe(STATE.RUNNING);
   });
 
-  test("onNotify が呼ばれる", () => {
+  test("作業・休憩の切り替えでは onNotify は呼ばれない（自動遷移）", () => {
     const clock = createFakeClock();
     const messages = [];
     const timer = new Timer({
       workSeconds: 1,
+      breakSeconds: 1,
+      totalSets: 10,
       _clock: clock,
       onNotify: (msg) => messages.push(msg),
     });
     timer.start();
-    clock.tick(1);
-    expect(messages).toHaveLength(1);
-    expect(messages[0]).toContain("作業時間が終了");
+    clock.tick(1); // 作業終了 → 自動で休憩（アラートなし）
+    clock.tick(1); // 休憩終了 → 自動で作業（アラートなし）
+    expect(messages).toHaveLength(0);
   });
 
-  test("タイマー完了後は次のモードの IDLE に遷移して再 start() できる", () => {
+  test("onAllSetsComplete 未設定時は onNotify で全完了通知される", () => {
+    const clock = createFakeClock();
+    const messages = [];
+    const timer = new Timer({
+      workSeconds: 1,
+      breakSeconds: 1,
+      totalSets: 1,
+      _clock: clock,
+      onNotify: (msg) => messages.push(msg),
+      // onAllSetsComplete 未設定 → _notify にフォールバック
+    });
+    timer.start();
+    clock.tick(1); // 作業終了 → 自動で休憩
+    clock.tick(1); // 休憩終了 → 1 セット完了 → onNotify 呼ばれる
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toContain("セット完了");
+  });
+
+  test("タイマー完了後は次のモードが自動スタートする", () => {
     const clock = createFakeClock();
     const timer = new Timer({
       workSeconds: 1,
+      breakSeconds: 5,
       _clock: clock,
-      onNotify: () => {},
     });
     timer.start();
     clock.tick(1);
-    // 作業終了後は休憩モードの IDLE
-    expect(timer.currentState).toBe(STATE.IDLE);
-    expect(timer.currentMode).toBe(MODE.BREAK);
-    // 休憩モードから start() できる
-    timer.start();
+    // 作業終了後は自動で休憩が RUNNING
     expect(timer.currentState).toBe(STATE.RUNNING);
+    expect(timer.currentMode).toBe(MODE.BREAK);
+    // break が正常にカウントされている
+    clock.tick(2);
+    expect(timer.remainingSeconds).toBe(3); // 5 - 2 = 3
   });
 });
 
@@ -308,12 +329,13 @@ describe("getTimeString() エッジケース", () => {
 // ------------------------------------------------------------------ 4 セット完了
 
 describe("4 セット完了", () => {
-  /** 1 セット（作業→休憩）を完了するヘルパー */
+  /**
+   * 自動遷移前提: timer.start() で最初の作業を開始済みの状態で呼ぶ。
+   * 1 セット = 作業 tick + 休憩 tick（自動スタートするので timer.start() 不要）
+   */
   function completeOneSet(timer, clock) {
-    timer.start();
-    clock.tick(timer.workSeconds);
-    timer.start();
-    clock.tick(timer.breakSeconds);
+    clock.tick(timer.workSeconds);   // 作業終了 → 自動で休憩開始
+    clock.tick(timer.breakSeconds);  // 休憩終了 → 自動で次の作業開始（または全完了）
   }
 
   test("休憩が終わるたびに completedSets が増える", () => {
@@ -323,8 +345,8 @@ describe("4 セット完了", () => {
       breakSeconds: 1,
       totalSets: 4,
       _clock: clock,
-      onNotify: () => {},
     });
+    timer.start();
     completeOneSet(timer, clock);
     expect(timer.completedSets).toBe(1);
     completeOneSet(timer, clock);
@@ -339,9 +361,9 @@ describe("4 セット完了", () => {
       breakSeconds: 1,
       totalSets: 4,
       _clock: clock,
-      onNotify: () => {},
       onAllSetsComplete: (msg) => allDoneMessages.push(msg),
     });
+    timer.start();
     for (let i = 0; i < 4; i++) {
       completeOneSet(timer, clock);
     }
@@ -356,9 +378,9 @@ describe("4 セット完了", () => {
       breakSeconds: 1,
       totalSets: 4,
       _clock: clock,
-      onNotify: () => {},
       onAllSetsComplete: () => {},
     });
+    timer.start();
     for (let i = 0; i < 4; i++) {
       completeOneSet(timer, clock);
     }
@@ -374,9 +396,9 @@ describe("4 セット完了", () => {
       breakSeconds: 1,
       totalSets: 2,
       _clock: clock,
-      onNotify: () => {},
       onAllSetsComplete: () => allDoneCalls.push(true),
     });
+    timer.start();
     completeOneSet(timer, clock);
     expect(allDoneCalls).toHaveLength(0); // まだ 1 セット
     completeOneSet(timer, clock);
@@ -391,12 +413,26 @@ describe("4 セット完了", () => {
       breakSeconds: 10,
       totalSets: 1,
       _clock: clock,
-      onNotify: () => {},
       onAllSetsComplete: () => allDoneCalls.push(true),
     });
-    // 作業のみ完了
+    // 作業のみ完了 → 自動で休憩開始（まだ完了アラートなし）
     timer.start();
     clock.tick(1);
     expect(allDoneCalls).toHaveLength(0);
+  });
+
+  test("4 セット完了後はタイマーが IDLE になる", () => {
+    const clock = createFakeClock();
+    const timer = new Timer({
+      workSeconds: 1,
+      breakSeconds: 1,
+      totalSets: 1,
+      _clock: clock,
+      onAllSetsComplete: () => {},
+    });
+    timer.start();
+    completeOneSet(timer, clock);
+    // 全完了後は IDLE で待機（ユーザーが手動で開始する）
+    expect(timer.currentState).toBe(STATE.IDLE);
   });
 });
