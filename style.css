@@ -1,0 +1,220 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #7b6fc4;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans",
+    "Noto Sans JP", sans-serif;
+}
+
+.window {
+  background: #ffffff;
+  border-radius: 16px;
+  width: 380px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+}
+
+/* Title bar */
+.title-bar {
+  display: flex;
+  align-items: center;
+  padding: 16px 20px 10px;
+}
+
+.title-bar h1 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #2d2d2d;
+  flex: 1;
+}
+
+.window-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.window-controls span {
+  font-size: 12px;
+  color: #aaa;
+  cursor: pointer;
+  line-height: 1;
+}
+
+/* Main content */
+.content {
+  padding: 8px 36px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Status label */
+.status-label {
+  font-size: 14px;
+  color: #888;
+  margin-bottom: 16px;
+}
+
+/* Circular timer */
+.timer-ring-container {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  margin-bottom: 28px;
+}
+
+.timer-ring-container svg {
+  transform: rotate(-90deg);
+  display: block;
+}
+
+.ring-bg {
+  fill: none;
+  stroke: #e8e8f0;
+  stroke-width: 18;
+}
+
+.ring-progress {
+  fill: none;
+  stroke: #6c63c4;
+  stroke-width: 18;
+  stroke-linecap: round;
+  /* 初期状態: app.js が読み込み後に円周値と offset を上書きする */
+  stroke-dasharray: 502.65;
+  stroke-dashoffset: 0; /* フルリングで表示 */
+  transition: stroke-dashoffset 0.5s ease;
+}
+
+.timer-display {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 40px;
+  font-weight: 700;
+  color: #2d2d2d;
+  letter-spacing: 1px;
+}
+
+/* Settings card */
+.settings-card {
+  display: flex;
+  gap: 16px;
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.setting-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.setting-item label {
+  font-size: 12px;
+  color: #888;
+  font-weight: 500;
+}
+
+.time-input {
+  border: 1.5px solid #c5c5d8;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #2d2d2d;
+  background: #f8f8fc;
+  outline: none;
+  width: 100%;
+  text-align: center;
+}
+
+.time-input:focus {
+  border-color: #6c63c4;
+  background: #fff;
+}
+
+/* Buttons */
+.buttons {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.btn {
+  border: none;
+  border-radius: 50px;
+  padding: 12px 36px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.btn:hover {
+  opacity: 0.85;
+}
+
+.btn-start {
+  background-color: #6c63c4;
+  color: #ffffff;
+}
+
+.btn-reset {
+  background-color: transparent;
+  color: #2d2d2d;
+  border: 1.5px solid #c5c5d8;
+}
+
+/* Progress card */
+.progress-card {
+  background: #f4f4fb;
+  border-radius: 12px;
+  width: 100%;
+  padding: 16px 20px 18px;
+}
+
+.progress-card h2 {
+  font-size: 13px;
+  font-weight: 600;
+  color: #444;
+  margin-bottom: 14px;
+}
+
+.progress-stats {
+  display: flex;
+  gap: 32px;
+  align-items: flex-end;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.stat-value.highlight {
+  color: #6c63c4;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #999;
+  margin-top: 2px;
+}
