@@ -91,7 +91,17 @@ body {
   /* 初期状態: app.js が読み込み後に円周値と offset を上書きする */
   stroke-dasharray: 502.65;
   stroke-dashoffset: 0; /* フルリングで表示 */
-  transition: stroke-dashoffset 0.5s ease;
+  transition: stroke-dashoffset 0.5s ease, stroke 0.3s ease;
+}
+
+/* 休憩モード時のリング色（ティール系） */
+.ring-progress.break-mode {
+  stroke: #4da18f;
+}
+
+/* 一時停止中のリング（透明度を下げて停止感を演出） */
+.ring-progress.paused {
+  opacity: 0.5;
 }
 
 .timer-display {
