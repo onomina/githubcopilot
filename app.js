@@ -216,6 +216,9 @@
       startBtn.textContent = "一時停止";
       // 現在のモードをステータスラベルに反映
       statusEl.textContent = timer.currentMode === MODE.WORK ? "作業中" : "休憩中";
+      // リングを現在のモードの色に合わせ、一時停止クラスを除去する
+      updateRingMode();
+      ringProgress.classList.remove("paused");
     }
   });
 
