@@ -50,7 +50,6 @@ on:
       - '**/*.yaml'
       - '!docs/**'
 
-# 2026年のNode.js非推奨警告への対策
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -61,21 +60,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-
-      - name: Install dependencies and gh-aw tool
-        run: |
-          npm ci || true
-          # npmレジストリで見つからないため、GitHubから直接インストールを試みます
-          npm install -g https://github.com/github/gh-aw.git
-
+      # ドキュメント同期ツールを「アクション」として実行
       - name: Update documentation
-        run: |
-          # インストールした gh-aw コマンドを実行
-          gh-aw update-docs --source . --docs ./docs
+        uses: github/gh-aw@main
+        with:
+          # create.md の仕様に合わせた引数の渡し方
+          args: 'update-docs --source . --docs ./docs'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -84,7 +74,6 @@ jobs:
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git add docs/
-          # 変更がある場合のみコミット
           git diff --cached --quiet || git commit -m 'docs: update documentation to match source code [auto-sync]'
           git push || echo 'No changes to commit.'
         env:
