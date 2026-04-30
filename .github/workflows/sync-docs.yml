@@ -52,13 +52,14 @@ jobs:
       # 4. AIエージェント(gh-aw)によるドキュメント生成・更新
       - name: Run Agentic Workflow (gh-aw)
         env:
-          # AI実行に必要な権限。設定がなければ標準のGITHUB_TOKENを使用
+          # シークレットが設定されていなくても動くように || で標準トークンを指定
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
-          # npxを使用して最新のgh-awツールを実行
-          # --source . : リポジトリのルートにあるファイルを分析
-          # --docs ./docs : 結果をdocsフォルダに出力
-          npx @github/gh-aw update-docs --source . --docs ./docs
+          # 1. npmの404エラーを避けるため github:github/gh-aw と指定
+          # 2. あなたの環境（直下）に合わせて --source . に変更
+          # 3. 出力先を直下の docs フォルダにするため --docs ./docs に変更
+          npx github:github/gh-aw update-docs --source . --docs ./docs
+
 
       # 5. 生成されたドキュメントに差分があれば、リポジトリにコミットして反映
       - name: Commit & Push docs if changed
