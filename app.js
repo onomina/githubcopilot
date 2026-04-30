@@ -27,19 +27,18 @@
   ringProgress.style.strokeDasharray = CIRCUMFERENCE;
   ringProgress.style.strokeDashoffset = 0;
 
-  // ---- 今日の進捗トラッキング ----
-  let totalCompletedSets = 0;  // 今日の完了セット数（ページリロードまで累積）
-  let totalFocusSeconds = 0;   // 今日の集中時間（秒）（ページリロードまで累積）
+  // ---- 進捗管理インスタンス ----
+  const progress = new ProgressManager({
+    onProgressUpdate: updateProgressDisplay,
+  });
 
   /**
    * 今日の進捗表示を更新する。
    */
   function updateProgressDisplay() {
-    completedSetsEl.textContent = totalCompletedSets;
+    completedSetsEl.textContent = progress.completedSets;
 
-    const hours = Math.floor(totalFocusSeconds / 3600);
-    const minutes = Math.floor((totalFocusSeconds % 3600) / 60);
-    const seconds = totalFocusSeconds % 60;
+    const { hours, minutes, seconds } = progress.getFocusTime();
 
     if (hours > 0) {
       focusTimeEl.textContent = `${hours}時間${minutes}分`;
@@ -123,13 +122,11 @@
    */
   function handleComplete(mode) {
     if (mode === MODE.WORK) {
-      // 作業セッション完了 → 今日の集中時間に追加
-      totalFocusSeconds += timer.workSeconds;
-      updateProgressDisplay();
+      // 作業セッション完了 → 進捗マネージャーに作業時間を記録（onProgressUpdate で即時UI反映）
+      progress.completeSession(PROGRESS_MODE.WORK, timer.workSeconds);
     } else {
-      // 休憩完了 → 1 セット完了としてカウント
-      totalCompletedSets += 1;
-      updateProgressDisplay();
+      // 休憩完了 → 進捗マネージャーに休憩完了を記録し1セットをカウント（onProgressUpdate で即時UI反映）
+      progress.completeSession(PROGRESS_MODE.BREAK, timer.breakSeconds);
     }
 
     // timer はすでに次のモードに切り替わっているので currentMode を参照
