@@ -49,16 +49,21 @@ jobs:
         run: |
           npm ci || npm install
 
-      # 4. AIエージェント(gh-aw)によるドキュメント生成・更新
+      # 4. gh-awリポジトリをcloneしてドキュメント生成・更新
+      - name: Clone gh-aw
+        run: git clone https://github.com/github/gh-aw.git
+
+      - name: Install gh-aw dependencies
+        run: |
+          cd gh-aw
+          npm install
+
       - name: Run Agentic Workflow (gh-aw)
         env:
-          # シークレットが設定されていなくても動くように || で標準トークンを指定
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
-          # 1. npmの404エラーを避けるため github:github/gh-aw と指定
-          # 2. あなたの環境（直下）に合わせて --source . に変更
-          # 3. 出力先を直下の docs フォルダにするため --docs ./docs に変更
-          npx github:github/gh-aw update-docs --source . --docs ./docs
+          cd gh-aw
+          node ./bin/cli.js update-docs --source ../ --docs ../docs
 
 
       # 5. 生成されたドキュメントに差分があれば、リポジトリにコミットして反映
