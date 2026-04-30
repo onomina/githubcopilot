@@ -34,9 +34,11 @@ class ProgressManager {
     this.onSetComplete = options.onSetComplete ?? null;
     this.onProgressUpdate = options.onProgressUpdate ?? null;
 
-    this._completedSets = 0;       // 完了セット数
-    this._totalFocusSeconds = 0;   // 累計集中時間（作業時間のみ）
-    this._pendingWork = false;      // 作業セッションが完了済みで休憩待ちかどうか
+    const init = options.initialState ?? {};
+    const sanitize = (v) => typeof v === "number" && v >= 0 ? Math.floor(v) : 0;
+    this._completedSets = sanitize(init.completedSets);       // 完了セット数
+    this._totalFocusSeconds = sanitize(init.totalFocusSeconds); // 累計集中時間（作業時間のみ）
+    this._pendingWork = init.pendingWork === true;  // 作業セッションが完了済みで休憩待ちかどうか
   }
 
   // ================================================================== getters
@@ -49,6 +51,20 @@ class ProgressManager {
   /** 累計集中時間（秒）を返す */
   get totalFocusSeconds() {
     return this._totalFocusSeconds;
+  }
+
+  /**
+   * 現在の進捗状態をシリアライズ可能なオブジェクトで返す。
+   * localStorage 等への保存に使用する。
+   *
+   * @returns {{ completedSets: number, totalFocusSeconds: number, pendingWork: boolean }}
+   */
+  getState() {
+    return {
+      completedSets: this._completedSets,
+      totalFocusSeconds: this._totalFocusSeconds,
+      pendingWork: this._pendingWork,
+    };
   }
 
   /** 累計集中時間を { hours, minutes, seconds } 形式で返す */
