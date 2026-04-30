@@ -49,21 +49,9 @@ jobs:
         run: |
           npm ci || npm install
 
-      # 4. gh-awリポジトリをcloneしてドキュメント生成・更新
-      - name: Clone gh-aw
-        run: git clone https://github.com/github/gh-aw.git
-
-      - name: Install gh-aw dependencies
-        run: |
-          cd gh-aw
-          npm install
-
-      - name: Run Agentic Workflow (gh-aw)
-        env:
-          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
-        run: |
-          cd gh-aw
-          node ./bin/cli.js update-docs --source ../ --docs ../docs
+      # 4. Agentic Workflow (gh-aw) をGitHub Actionsとして実行
+      # gh-awはGo実装のため、直接コマンド実行は不要。ワークフロー記述のみでAIドキュメント自動生成が可能。
+      # 必要に応じて、.github/aw/ や docs/ 配下にSKILL.mdやワークフロー定義を追加してください。
 
 
       # 5. 生成されたドキュメントに差分があれば、リポジトリにコミットして反映
