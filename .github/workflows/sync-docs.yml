@@ -1,40 +1,76 @@
+# ワークフロー名：GitHub上のActionsタブに表示される名前です
 name: Sync Docs with Source
 
+# 実行されるタイミング（トリガー）の設定
 on:
   push:
-    branches: ["main"]
+    # リポジトリ直下のJS、HTML、CSS、package.jsonが更新された時に実行
     paths:
-      - '**/*.js'
-      - '**/*.ts'
-      - '**/*.py'
-      - '**/*.java'
-      - '**/*.go'
-      - '**/*.rb'
-      - '**/*.cpp'
-      - '**/*.c'
-      - '**/*.cs'
-      - '**/*.php'
-      - '**/*.rs'
-      - '**/*.swift'
-      - '**/*.kt'
-      - '**/*.scala'
-      - '**/*.sh'
-      - '**/*.pl'
-      - '**/*.html'
-      - '**/*.css'
-      - '**/*.json'
-      - '**/*.yml'
-      - '**/*.yaml'
+      - '*.js'
+      - '*.html'
+      - '*.css'
+      - 'package.json'
+      - '!docs/**' # docsフォルダ内の変更ではこのワークフローを起動させない（無限ループ防止）
+  pull_request:
+    paths:
+      - '*.js'
+      - '*.html'
+      - '*.css'
+      - 'package.json'
       - '!docs/**'
-  workflow_dispatch:
+
+# 2026年のNode.js 20廃止に伴う環境設定
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  agent:
-    # これが GitHub Agentic Workflows を動かすための専用の設定です
-    uses: github/gh-aw/.github/workflows/agent.yml@main
-    with:
-      # 「何をさせるか」の指示（後述する Markdown ファイルを指定）
-      instructions: .github/workflows/sync-docs.md
-    secrets:
-      # AI（Copilot等）を動かすためのトークンが必要です
-      GH_AW_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  # ジョブ名：ドキュメント同期のメイン処理
+  agentic-docs-sync:
+    runs-on: ubuntu-latest # 最新のUbuntu環境で実行
+    
+    # リポジトリへの書き込み権限を許可（更新したドキュメントを保存するため）
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      # 1. リポジトリのコードを仮想マシンにチェックアウト（取得）
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Node.jsの実行環境をセットアップ（Node.js 24を使用）
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      # 3. 依存ライブラリのインストール
+      - name: Install dependencies
+        run: |
+          npm ci || npm install
+
+      # 4. AIエージェント(gh-aw)によるドキュメント生成・更新
+      - name: Run Agentic Workflow (gh-aw)
+        env:
+          # AI実行に必要な権限。設定がなければ標準のGITHUB_TOKENを使用
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          # npxを使用して最新のgh-awツールを実行
+          # --source . : リポジトリのルートにあるファイルを分析
+          # --docs ./docs : 結果をdocsフォルダに出力
+          npx @github/gh-aw update-docs --source . --docs ./docs
+
+      # 5. 生成されたドキュメントに差分があれば、リポジトリにコミットして反映
+      - name: Commit & Push docs if changed
+        run: |
+          # 実行者（Actions公式Bot）の設定
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          
+          # docsフォルダをステージングに追加
+          git add docs/
+          
+          # 差分がある場合のみコミットしてプッシュ
+          # (git diff --cached --quiet が 0を返さない＝差分がある場合に右側を実行)
+          git diff --cached --quiet || git commit -m "docs: documentation auto-sync"
+          git push
