@@ -54,17 +54,33 @@ jobs:
       # 必要に応じて、.github/aw/ や docs/ 配下にSKILL.mdやワークフロー定義を追加してください。
 
 
-      # 5. 生成されたドキュメントに差分があれば、リポジトリにコミットして反映
-      - name: Commit & Push docs if changed
+      # 5. 生成されたドキュメントに差分があれば、mainから「{元ブランチ名}_document_update」ブランチを作成し、そこにコミット＆プッシュ
+      - name: Commit & Push docs to new branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # 実行者（Actions公式Bot）の設定
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          
+
+          # mainブランチを取得し直す
+          git fetch origin main
+          git checkout main
+          git pull origin main
+
+          # 元ブランチ名を取得（pull_requestならgithub.head_ref、pushならgithub.ref_name）
+          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
+          DOC_BRANCH="${BRANCH_NAME}_document_update"
+
+          # 新しいドキュメント用ブランチを作成
+          git checkout -b "$DOC_BRANCH"
+
           # docsフォルダをステージングに追加
           git add docs/
-          
-          # 差分がある場合のみコミットしてプッシュ
-          # (git diff --cached --quiet が 0を返さない＝差分がある場合に右側を実行)
-          git diff --cached --quiet || git commit -m "docs: documentation auto-sync"
-          git push
+
+          # 差分がある場合のみコミット＆プッシュ
+          if ! git diff --cached --quiet; then
+            git commit -m "docs: documentation auto-sync"
+            git push origin "$DOC_BRANCH"
+          else
+            echo "No documentation changes to commit."
+          fi
