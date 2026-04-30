@@ -33,7 +33,72 @@ describe("初期状態", () => {
   });
 });
 
-// ------------------------------------------------------------------ completeSession（作業）
+// ------------------------------------------------------------------ initialState（復元）
+
+describe("initialState オプション", () => {
+  test("completedSets を復元できる", () => {
+    const progress = new ProgressManager({ initialState: { completedSets: 3, totalFocusSeconds: 0 } });
+    expect(progress.completedSets).toBe(3);
+  });
+
+  test("totalFocusSeconds を復元できる", () => {
+    const progress = new ProgressManager({ initialState: { completedSets: 0, totalFocusSeconds: 180 } });
+    expect(progress.totalFocusSeconds).toBe(180);
+  });
+
+  test("pendingWork が true の状態を復元できる（その後の休憩でセットがカウントされる）", () => {
+    const progress = new ProgressManager({ initialState: { completedSets: 1, totalFocusSeconds: 60, pendingWork: true } });
+    progress.completeSession(PROGRESS_MODE.BREAK, 20);
+    expect(progress.completedSets).toBe(2);
+  });
+
+  test("不正な値は無視してデフォルト値になる", () => {
+    const progress = new ProgressManager({ initialState: { completedSets: -1, totalFocusSeconds: "abc" } });
+    expect(progress.completedSets).toBe(0);
+    expect(progress.totalFocusSeconds).toBe(0);
+  });
+
+  test("initialState が null の場合はデフォルト値になる", () => {
+    const progress = new ProgressManager({ initialState: null });
+    expect(progress.completedSets).toBe(0);
+    expect(progress.totalFocusSeconds).toBe(0);
+  });
+});
+
+// ------------------------------------------------------------------ getState
+
+describe("getState()", () => {
+  test("初期状態では completedSets=0, totalFocusSeconds=0, pendingWork=false を返す", () => {
+    const progress = new ProgressManager();
+    expect(progress.getState()).toEqual({ completedSets: 0, totalFocusSeconds: 0, pendingWork: false });
+  });
+
+  test("作業完了後は pendingWork が true になる", () => {
+    const progress = new ProgressManager();
+    progress.completeSession(PROGRESS_MODE.WORK, 60);
+    expect(progress.getState()).toEqual({ completedSets: 0, totalFocusSeconds: 60, pendingWork: true });
+  });
+
+  test("作業→休憩完了後は completedSets が増え pendingWork が false に戻る", () => {
+    const progress = new ProgressManager();
+    progress.completeSession(PROGRESS_MODE.WORK, 60);
+    progress.completeSession(PROGRESS_MODE.BREAK, 20);
+    expect(progress.getState()).toEqual({ completedSets: 1, totalFocusSeconds: 60, pendingWork: false });
+  });
+
+  test("getState() の返り値を initialState に渡すと状態が復元される", () => {
+    const original = new ProgressManager();
+    original.completeSession(PROGRESS_MODE.WORK, 90);
+    original.completeSession(PROGRESS_MODE.BREAK, 20);
+    original.completeSession(PROGRESS_MODE.WORK, 90);
+
+    const restored = new ProgressManager({ initialState: original.getState() });
+    expect(restored.completedSets).toBe(original.completedSets);
+    expect(restored.totalFocusSeconds).toBe(original.totalFocusSeconds);
+  });
+});
+
+
 
 describe("completeSession() - 作業セッション", () => {
   test("作業完了で totalFocusSeconds が加算される", () => {

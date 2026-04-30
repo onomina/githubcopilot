@@ -27,13 +27,53 @@
   ringProgress.style.strokeDasharray = CIRCUMFERENCE;
   ringProgress.style.strokeDashoffset = 0;
 
+  // ---- localStorage キー ----
+  const STORAGE_KEY = "pomodoro_progress";
+
+  /** 今日の日付を "YYYY-MM-DD" 形式で返す */
+  function getTodayDateString() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  /**
+   * 今日の進捗データを localStorage から読み込む。
+   * 日付が今日と異なる場合は null を返す（前日以前のデータは破棄）。
+   *
+   * @returns {{ completedSets: number, totalFocusSeconds: number, pendingWork: boolean } | null}
+   */
+  function loadProgress() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      const saved = JSON.parse(raw);
+      if (saved.date !== getTodayDateString()) return null;
+      return saved.state ?? null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /**
+   * 今日の進捗データを localStorage に保存する。
+   *
+   * @param {{ completedSets: number, totalFocusSeconds: number, pendingWork: boolean }} state
+   */
+  function saveProgress(state) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ date: getTodayDateString(), state }));
+    } catch (_) {
+      // localStorage が使用不可の場合は無視
+    }
+  }
+
   // ---- 進捗管理インスタンス ----
   const progress = new ProgressManager({
+    initialState: loadProgress(),
     onProgressUpdate: updateProgressDisplay,
   });
 
   /**
-   * 今日の進捗表示を更新する。
+   * 今日の進捗表示を更新し、localStorage に保存する。
    */
   function updateProgressDisplay() {
     completedSetsEl.textContent = progress.completedSets;
@@ -47,6 +87,8 @@
     } else {
       focusTimeEl.textContent = `${seconds}秒`;
     }
+
+    saveProgress(progress.getState());
   }
 
   // ---- Timer インスタンスを生成 ----
@@ -166,11 +208,15 @@
     timer.reset();
     // 入力値をタイマーに反映（リセット後に設定値が変わっていれば更新）
     applyInputValues();
+    // 進捗データをリセットし localStorage も消去
+    progress.reset();
+    try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
     // UI を初期状態に戻す
     startBtn.textContent = "開始";
     statusEl.textContent = "作業中";
     displayEl.textContent = timer.getTimeString();
     ringProgress.style.strokeDashoffset = 0; // フルリングに戻す
+    updateProgressDisplay();
   });
 
   // ---- 初期表示 ----
