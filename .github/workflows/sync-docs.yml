@@ -1,0 +1,86 @@
+# ワークフロー名：GitHub上のActionsタブに表示される名前です
+name: Sync Docs with Source
+
+# 実行されるタイミング（トリガー）の設定
+on:
+  push:
+    # リポジトリ直下のJS、HTML、CSS、package.jsonが更新された時に実行
+    paths:
+      - '*.js'
+      - '*.html'
+      - '*.css'
+      - 'package.json'
+      - '!docs/**' # docsフォルダ内の変更ではこのワークフローを起動させない（無限ループ防止）
+  pull_request:
+    paths:
+      - '*.js'
+      - '*.html'
+      - '*.css'
+      - 'package.json'
+      - '!docs/**'
+
+# 2026年のNode.js 20廃止に伴う環境設定
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  # ジョブ名：ドキュメント同期のメイン処理
+  agentic-docs-sync:
+    runs-on: ubuntu-latest # 最新のUbuntu環境で実行
+    
+    # リポジトリへの書き込み権限を許可（更新したドキュメントを保存するため）
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      # 1. リポジトリのコードを仮想マシンにチェックアウト（取得）
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Node.jsの実行環境をセットアップ（Node.js 24を使用）
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      # 3. 依存ライブラリのインストール
+      - name: Install dependencies
+        run: |
+          npm ci || npm install
+
+      # 4. Agentic Workflow (gh-aw) をGitHub Actionsとして実行
+      # gh-awはGo実装のため、直接コマンド実行は不要。ワークフロー記述のみでAIドキュメント自動生成が可能。
+      # 必要に応じて、.github/aw/ や docs/ 配下にSKILL.mdやワークフロー定義を追加してください。
+
+
+      # 5. 生成されたドキュメントに差分があれば、mainから「{元ブランチ名}_document_update」ブランチを作成し、そこにコミット＆プッシュ
+      - name: Commit & Push docs to new branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+          # mainブランチを取得し直す
+          git fetch origin main
+          git checkout main
+          git pull origin main
+
+          # 元ブランチ名を取得（pull_requestならgithub.head_ref、pushならgithub.ref_name）
+          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
+          DOC_BRANCH="${BRANCH_NAME}_document_update"
+
+          # 新しいドキュメント用ブランチを作成
+          git checkout -b "$DOC_BRANCH"
+
+          # docsフォルダをステージングに追加
+          git add docs/
+
+          # 差分がある場合のみコミット＆プッシュ
+          if ! git diff --cached --quiet; then
+            git commit -m "docs: documentation auto-sync"
+            git push origin "$DOC_BRANCH"
+          else
+            echo "No documentation changes to commit."
+          fi
