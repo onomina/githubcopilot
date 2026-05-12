@@ -52,7 +52,10 @@ jobs:
       # 4. Agentic Workflow (gh-aw) をGitHub Actionsとして実行
       # gh-awはGo実装のため、直接コマンド実行は不要。ワークフロー記述のみでAIドキュメント自動生成が可能。
       # 必要に応じて、.github/aw/ や docs/ 配下にSKILL.mdやワークフロー定義を追加してください。
-
+      # 4. ドキュメント自動生成
+      - name: Generate docs
+        run: |
+          npm run docs
 
       # 5. 生成されたドキュメントに差分があれば、mainから「{元ブランチ名}_document_update」ブランチを作成し、そこにコミット＆プッシュ
       - name: Commit & Push docs to new branch

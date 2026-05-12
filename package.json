@@ -4,12 +4,16 @@
   "description": "",
   "main": "timer.js",
   "scripts": {
-    "test": "jest"
+    "test": "jest",
+    "docs": "jsdoc -c jsdoc.json"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
     "jest": "^30.3.0"
+  },
+  "dependencies": {
+    "jsdoc": "^4.0.5"
   }
 }
