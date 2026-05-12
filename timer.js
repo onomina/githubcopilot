@@ -14,8 +14,8 @@
  */
 
 // ---- デフォルト時間設定 ----
-const DEFAULT_WORK_SECONDS = 1 * 60;      // 作業時間: 1 分 00 秒
-const DEFAULT_BREAK_SECONDS = 0 * 60 + 20; // 休憩時間: 0 分 20 秒
+const DEFAULT_WORK_SECONDS = 0 * 60 + 30;       // 作業時間: 0 分 30 秒
+const DEFAULT_BREAK_SECONDS = 0 * 60 + 10; // 休憩時間: 0 分 10 秒
 const TOTAL_SETS = 4;                      // 全セット数（作業+休憩を何サイクル繰り返すか）
 
 // ---- タイマーのモード定数 ----
