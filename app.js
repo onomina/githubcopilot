@@ -155,6 +155,19 @@
   }
 
   /**
+   * 現在のモードに合わせてリングの色クラスを更新する。
+   * - 作業モード: デフォルト（紫）
+   * - 休憩モード: ティール系
+   */
+  function updateRingMode() {
+    if (timer.currentMode === MODE.BREAK) {
+      ringProgress.classList.add("break-mode");
+    } else {
+      ringProgress.classList.remove("break-mode");
+    }
+  }
+
+  /**
    * 1 モード（作業 or 休憩）が終了したときに呼ばれる関数。
    * timer.js が次のモードへ切り替え済みなので、timer の現在値を読んで UI を更新する。
    * 次のモードは自動スタートされるため、ボタンは「一時停止」に変わる。
@@ -176,6 +189,8 @@
     // タイマーが自動スタートしていれば「一時停止」、停止（全完了）なら「開始」
     startBtn.textContent =
       timer.currentState === STATE.RUNNING ? "一時停止" : "開始";
+    // 次のモードに合わせてリングの色を更新
+    updateRingMode();
     // リングをフル（offset=0）に戻す
     ringProgress.style.strokeDashoffset = 0;
     // 次のモードの初期時間を表示
@@ -188,10 +203,12 @@
       // 動作中 → 一時停止
       timer.pause();
       startBtn.textContent = "再開";
+      ringProgress.classList.add("paused");
     } else if (timer.currentState === STATE.PAUSED) {
       // 一時停止中 → 再開
       timer.resume();
       startBtn.textContent = "一時停止";
+      ringProgress.classList.remove("paused");
     } else {
       // 停止中 → 入力値を反映してから開始
       applyInputValues();
@@ -199,6 +216,9 @@
       startBtn.textContent = "一時停止";
       // 現在のモードをステータスラベルに反映
       statusEl.textContent = timer.currentMode === MODE.WORK ? "作業中" : "休憩中";
+      // リングを現在のモードの色に合わせ、一時停止クラスを除去する
+      updateRingMode();
+      ringProgress.classList.remove("paused");
     }
   });
 
@@ -216,6 +236,8 @@
     statusEl.textContent = "作業中";
     displayEl.textContent = timer.getTimeString();
     ringProgress.style.strokeDashoffset = 0; // フルリングに戻す
+    // リングを作業モードの初期スタイルに戻す
+    ringProgress.classList.remove("break-mode", "paused");
     updateProgressDisplay();
   });
 
