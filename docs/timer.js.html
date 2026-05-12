@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: timer.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: timer.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/**
+ * ポモドーロタイマー ロジック
+ *
+ * 使い方:
+ *   const timer = new Timer({ onTick, onComplete, onNotify, onAllSetsComplete });
+ *   timer.start();   // タイマー開始
+ *   timer.pause();   // 一時停止
+ *   timer.resume();  // 再開
+ *   timer.reset();   // リセット（作業モード・初期秒数・セット数 0 に戻る）
+ *
+ * セットの数え方:
+ *   作業 1 回 + 休憩 1 回 = 1 セット
+ *   TOTAL_SETS（デフォルト 4）セット完了で onAllSetsComplete が呼ばれる。
+ */
+
+// ---- デフォルト時間設定 ----
+const DEFAULT_WORK_SECONDS = 0 * 60 + 30;       // 作業時間: 0 分 30 秒
+const DEFAULT_BREAK_SECONDS = 0 * 60 + 10; // 休憩時間: 0 分 10 秒
+const TOTAL_SETS = 4;                      // 全セット数（作業+休憩を何サイクル繰り返すか）
+
+// ---- タイマーのモード定数 ----
+const MODE = {
+  WORK: "work",   // 作業中
+  BREAK: "break", // 休憩中
+};
+
+// ---- タイマーの状態定数 ----
+const STATE = {
+  IDLE: "idle",       // 停止中（開始前またはリセット後）
+  RUNNING: "running", // カウントダウン中
+  PAUSED: "paused",   // 一時停止中
+};
+
+class Timer {
+  /**
+   * タイマーを生成する。
+   *
+   * @param {object}   [options]
+   * @param {number}   [options.workSeconds]         - 作業時間（秒）。省略時は 60 秒。
+   * @param {number}   [options.breakSeconds]        - 休憩時間（秒）。省略時は 20 秒。
+   * @param {number}   [options.totalSets]           - 全セット数。省略時は 4。
+   * @param {function} [options.onTick]              - 毎秒呼ばれるコールバック (remainingSeconds, mode) => void
+   * @param {function} [options.onComplete]          - 1 モード終了時のコールバック (mode) => void
+   * @param {function} [options.onNotify]            - 通知コールバック (message) => void（省略時は alert / console.log）
+   * @param {function} [options.onAllSetsComplete]   - 全セット完了時のコールバック (message) => void
+   * @param {object}   [options._clock]              - テスト用クロック差し込み口 { setInterval, clearInterval }
+   */
+  constructor(options = {}) {
+    // ---- 時間設定 ----
+    this.workSeconds = options.workSeconds ?? DEFAULT_WORK_SECONDS;
+    this.breakSeconds = options.breakSeconds ?? DEFAULT_BREAK_SECONDS;
+    this.totalSets = options.totalSets ?? TOTAL_SETS;
+
+    // ---- コールバック ----
+    this.onTick = options.onTick ?? null;
+    this.onComplete = options.onComplete ?? null;
+    this.onNotify = options.onNotify ?? null;
+    this.onAllSetsComplete = options.onAllSetsComplete ?? null;
+
+    // ---- テスト用クロック差し込み（本番は window の setInterval を使用） ----
+    this._clock = options._clock ?? {
+      setInterval: (fn, ms) => setInterval(fn, ms),
+      clearInterval: (id) => clearInterval(id),
+    };
+
+    // ---- 内部状態の初期化 ----
+    this.mode = MODE.WORK;      // 最初は作業モード
+    this.state = STATE.IDLE;    // 停止状態からスタート
+    this.remaining = this.workSeconds; // 残り秒数
+    this.completedSets = 0;     // 完了したセット数
+    this._intervalId = null;    // setInterval の戻り値を保持（clearInterval に使う）
+  }
+
+  // ================================================================== getters
+
+  /** 残り時間（秒）を返す */
+  get remainingSeconds() {
+    return this.remaining;
+  }
+
+  /** 現在のモード ("work" | "break") を返す */
+  get currentMode() {
+    return this.mode;
+  }
+
+  /** 現在の状態 ("idle" | "running" | "paused") を返す */
+  get currentState() {
+    return this.state;
+  }
+
+  // ================================================================== 公開メソッド
+
+  /**
+   * 残り時間を { minutes, seconds } 形式で返す。
+   * 残り秒が負になった場合は 0 として扱う。
+   */
+  getTime() {
+    const total = Math.max(0, this.remaining);
+    return {
+      minutes: Math.floor(total / 60),
+      seconds: total % 60,
+    };
+  }
+
+  /**
+   * 残り時間を "MM:SS" 形式の文字列で返す。
+   * 例: 65 秒 → "01:05"
+   */
+  getTimeString() {
+    const { minutes, seconds } = this.getTime();
+    const mm = String(minutes).padStart(2, "0");
+    const ss = String(seconds).padStart(2, "0");
+    return `${mm}:${ss}`;
+  }
+
+  /**
+   * タイマーを開始する。
+   * - IDLE 状態 → RUNNING に遷移してカウントダウン開始
+   * - RUNNING 状態では何もしない（二重開始防止）
+   * - PAUSED 状態では何もしない（再開は resume() を使う）
+   */
+  start() {
+    // すでに動いている場合は無視
+    if (this.state === STATE.RUNNING) return;
+    // 一時停止中は start() ではなく resume() を使う
+    if (this.state === STATE.PAUSED) return;
+
+    this.state = STATE.RUNNING;
+    this._startInterval(); // 1 秒ごとの処理を登録
+  }
+
+  /**
+   * タイマーを一時停止する。
+   * RUNNING 状態のときのみ有効。それ以外では何もしない。
+   */
+  pause() {
+    if (this.state !== STATE.RUNNING) return;
+    this.state = STATE.PAUSED;
+    this._clearInterval(); // 1 秒ごとの処理を解除
+  }
+
+  /**
+   * 一時停止中のタイマーを再開する。
+   * PAUSED 状態のときのみ有効。それ以外では何もしない。
+   */
+  resume() {
+    if (this.state !== STATE.PAUSED) return;
+    this.state = STATE.RUNNING;
+    this._startInterval(); // 1 秒ごとの処理を再登録
+  }
+
+  /**
+   * タイマーをリセットする。
+   * 作業モード・初期秒数・完了セット数 0 の IDLE 状態に戻る。
+   */
+  reset() {
+    this._clearInterval(); // 実行中の場合はインターバルを止める
+    this._reset();
+  }
+
+  // ================================================================== プライベートメソッド
+
+  /** 内部状態を初期値に戻す（reset() および次サイクル開始時に使用） */
+  _reset() {
+    this.mode = MODE.WORK;
+    this.state = STATE.IDLE;
+    this.remaining = this.workSeconds;
+    this.completedSets = 0; // セット数もリセット
+  }
+
+  /** 1 秒ごとのカウントダウン処理を setInterval で登録する */
+  _startInterval() {
+    this._intervalId = this._clock.setInterval(() => {
+      // 残り 0 秒以下の場合は、前のティックで "00:00" を 1 秒間表示済みのため終了処理へ
+      if (this.remaining &lt;= 0) {
+        this._handleComplete();
+        return;
+      }
+
+      // 1 秒減らす
+      this.remaining -= 1;
+
+      // UI 更新用コールバックを呼ぶ
+      // remaining が 0 になったとき "00:00" が 1 秒間表示される
+      if (this.onTick) {
+        this.onTick(this.remaining, this.mode);
+      }
+    }, 1000);
+  }
+
+  /** 登録済みの setInterval をクリアする */
+  _clearInterval() {
+    if (this._intervalId !== null) {
+      this._clock.clearInterval(this._intervalId);
+      this._intervalId = null;
+    }
+  }
+
+  /**
+   * タイマー終了時の処理。
+   *
+   * 作業と休憩の間はアラートなしで自動的に次のモードへ切り替わる。
+   * 作業＋休憩 = 1 セットとし、全セット（デフォルト 4）完了時のみ
+   * onAllSetsComplete を呼び出してタイマーを停止する。
+   *
+   * フロー:
+   *   1. インターバルを停止
+   *   2. 次のモード（作業 ↔ 休憩）と残り秒数を設定
+   *   3. 休憩終了なら completedSets を加算
+   *   4. 全セット完了かどうかに応じて IDLE / RUNNING に遷移
+   *   5. onComplete で UI を更新
+   *   6a. 全セット完了 → onAllSetsComplete を呼ぶ（タイマー停止）
+   *   6b. 継続中    → _startInterval() で次のモードを自動スタート
+   */
+  _handleComplete() {
+    this._clearInterval();
+
+    // 終了したモードを記録（この後 this.mode が変わるため）
+    const finishedMode = this.mode;
+
+    // 次のモードへ切り替え（作業→休憩、休憩→作業）
+    this.mode = finishedMode === MODE.WORK ? MODE.BREAK : MODE.WORK;
+    this.remaining =
+      this.mode === MODE.WORK ? this.workSeconds : this.breakSeconds;
+
+    // 休憩が終わったら 1 セット完了としてカウント
+    if (finishedMode === MODE.BREAK) {
+      this.completedSets += 1;
+    }
+
+    // 全セット完了チェック
+    const allSetsCompleted =
+      finishedMode === MODE.BREAK &amp;&amp; this.completedSets >= this.totalSets;
+
+    // 完了状態に応じて次の状態を決定（onComplete 呼び出し前に確定させる）
+    if (allSetsCompleted) {
+      this.state = STATE.IDLE;    // 全完了: 停止して待機
+      this.completedSets = 0;     // 次サイクルのためにカウントリセット
+    } else {
+      this.state = STATE.RUNNING; // 継続: 次のモードを自動スタート
+    }
+
+    // UI 更新コールバックを呼ぶ（この時点で mode/state/remaining は次の値に確定済み）
+    if (this.onComplete) this.onComplete(finishedMode);
+
+    if (allSetsCompleted) {
+      // 全セット完了: アラートを表示して停止
+      const allDoneMessage = `お疲れ様でした！${this.totalSets}セット完了しました。しっかり休んでください。`;
+      if (this.onAllSetsComplete) {
+        this.onAllSetsComplete(allDoneMessage);
+      } else {
+        this._notify(allDoneMessage);
+      }
+    } else {
+      // 次のモードを自動スタート（ユーザー操作不要）
+      this._startInterval();
+    }
+  }
+
+  /**
+   * 通知を発行する。
+   * onNotify が設定されていればそれを呼び、
+   * なければブラウザの alert、Node.js 環境では console.log にフォールバックする。
+   */
+  _notify(message) {
+    if (this.onNotify) {
+      this.onNotify(message);
+    } else if (typeof alert === "function") {
+      alert(message);
+    } else {
+      console.log(`[Timer] ${message}`);
+    }
+  }
+}
+
+// ブラウザ / Node.js 両対応のエクスポート
+if (typeof module !== "undefined" &amp;&amp; module.exports) {
+  module.exports = {
+    Timer,
+    MODE,
+    STATE,
+    DEFAULT_WORK_SECONDS,
+    DEFAULT_BREAK_SECONDS,
+    TOTAL_SETS,
+  };
+}
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="ProgressManager.html">ProgressManager</a></li><li><a href="Timer.html">Timer</a></li></ul><h3>Global</h3><ul><li><a href="global.html#createFakeClock">createFakeClock</a></li><li><a href="global.html#tick">tick</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.5</a> on Tue May 12 2026 02:02:36 GMT+0000 (Coordinated Universal Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>
