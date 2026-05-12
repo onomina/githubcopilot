@@ -4,7 +4,8 @@
   "description": "",
   "main": "timer.js",
   "scripts": {
-    "test": "jest"
+    "test": "jest",
+    "docs": "jsdoc -c jsdoc.json"
   },
   "keywords": [],
   "author": "",
